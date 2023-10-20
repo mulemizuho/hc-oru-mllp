@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:tracing="http://www.mulesoft.org/schema/mule/tracing" xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:hl7="http://www.mulesoft.org/schema/mule/hl7" xmlns:mllp="http://www.mulesoft.org/schema/mule/mllp" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mllp http://www.mulesoft.org/schema/mule/mllp/current/mule-mllp.xsd
+http://www.mulesoft.org/schema/mule/hl7 http://www.mulesoft.org/schema/mule/hl7/current/mule-hl7.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd
+http://www.mulesoft.org/schema/mule/tracing http://www.mulesoft.org/schema/mule/tracing/current/mule-tracing.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+    <hl7:config name="HL7_EDI_ORU_R01_Config" doc:name="HL7 EDI Config" doc:id="009850ca-0725-46fd-8c0b-27c5c99c19ec">
+		<hl7:schemas >
+			<hl7:schema value="/hl7lax/v2_5/ORU_R01.esl" />
+		</hl7:schemas>
+	</hl7:config>
+	<mllp:mllp-listener-config name="MLLP_ORU_R01_51961" doc:name="HL7 MLLP Mllp listener config" doc:id="8d418c48-ef04-4ee2-84e4-b4ab7da8a339" >
+		<mllp:mllp-listener-connection host="0.0.0.0" port="51961"/>
+	</mllp:mllp-listener-config>
+	<mllp:mllp-listener-config name="MLLP_ORU_R01_51962" doc:name="HL7 MLLP Mllp listener config" doc:id="d123184f-ac75-43ec-b5d5-2cd95d6ed481" >
+		<mllp:mllp-listener-connection host="0.0.0.0" port="51962"/>
+	</mllp:mllp-listener-config>
+	<mllp:mllp-listener-config name="MLLP_ORU_R01_51960" doc:name="HL7 MLLP Mllp listener config" doc:id="7b69a318-8662-4773-835a-5149a3eedae7" >
+		<mllp:mllp-listener-connection host="0.0.0.0" port="51960"/>
+	</mllp:mllp-listener-config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="c7db4d8e-719c-4e1e-9fc2-0025e287bcb7" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="cba20056-8a46-43bc-ad88-616c8b38ee01" >
+		<file:connection workingDir="/&lt;your directory path&gt;/output" />
+	</file:config>
+	<flow name="1-HL7v2-to-LH7v3" doc:id="e403f2b4-cdd1-489f-9b23-ec75b142fa94">
+		<mllp:mllp-listener doc:name="Listen on port 51960" doc:id="6b99b895-635d-4aaa-9bfc-779a274a196b" config-ref="MLLP_ORU_R01_51960" />
+		<hl7:read doc:name="Read" doc:id="46463a3c-7f97-4602-93e0-99cef17fdfe0" config-ref="HL7_EDI_ORU_R01_Config" />
+		<ee:transform doc:name="Convert to HL7v3" doc:id="ec6b5489-72b7-457f-a938-effb646e4f0e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::core::Strings
+var OBR=payload.Data.ORU_R01.PATIENT_RESULT[0].ORDER_OBSERVATION[0].OBR
+var OBX=payload.Data.ORU_R01.PATIENT_RESULT[0].ORDER_OBSERVATION[0].OBSERVATION[0].OBX
+var PID=payload.Data.ORU_R01.PATIENT_RESULT[0].PATIENT.PID
+output application/xml
+---
+{
+  "POLB_IN224200" @("ITSVersion": "XML_1.0","xmlns":"urn:hl7-org:v3", "xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance"): {
+    "id" @("root": "2.16.840.1.113883.19.1122.7", "extension": payload.MSH."MSH-10",): null,
+    "creationTime" @("value": payload.MSH."MSH-07"."TS-01"): null,
+    "versionCode" @("code": "2006-05"): null,
+    "interactionId" @("root": "2.16.840.1.113883.1.6", "extension": "POLB_IN224200"): null,
+    "processingCode" @("code": payload.MSH."MSH-11"."PT-01"): null,
+    "processingModeCode" @("nullFlavor": "OTH"): null,
+    "acceptAckCode" @("code": "ER"): null,
+    "receiver" @("typeCode": "RCV"): {
+      "device" @("classCode": "DEV", "determinerCode": "INSTANCE"): {
+        "id" @("extension": payload.MSH."MSH-03"."HD-01", "root": "2.16.840.1.113883.19.1122.1"): null,
+        "asLocatedEntity" @("classCode": "LOCE"): {
+          "location" @("classCode": "PLC", "determinerCode": "INSTANCE"): {
+            "id" @("root": "2.16.840.1.113883.19.1122.2", "extension": payload.MSH."MSH-04"."HD-01"): null
+          }
+        }
+      }
+    },
+    "sender" @("typeCode": "SND"): {
+      "device" @("classCode": "DEV", "determinerCode": "INSTANCE"): {
+        "id" @("root": "2.16.840.1.113883.19.1122.1", "extension": payload.MSH."MSH-05"."HD-01"): null,
+        "asLocatedEntity" @("classCode": "LOCE"): {
+          "location" @("classCode": "PLC", "determinerCode": "INSTANCE"): {
+            "id" @("root": "2.16.840.1.113883.19.1122.2", "extension": payload.MSH."MSH-06"."HD-01"): null
+          }
+        }
+      }
+    },
+    "controlActProcess" @("classCode": "CACT", "moodCode": "EVN"): {
+      "code" @("code": "POLB_TE224200", "codeSystem": "2.16.840.1.113883.1.18"): null,
+      "subject" @("typeCode": "SUBJ", "contextConductionInd": "false"): null
+    },
+    "observationEvent": {
+      "id" @("root": "2.16.840.1.113883.19.1122.4", "extension": OBR."OBR-03"."EI-01", "assigningAuthorityName": (OBR."OBR-03"."EI-02" default "")++" Filler Orders"): null,
+      "code" @("code": OBX."OBX-03"."CE-01", "codeSystemName": "LN", "codeSystem": "2.16.840.1.113883.6.1", "displayName": (OBX."OBX-03"."CE-02" default "") ++ "^" ++ (OBX."OBX-03"."CE-03" default"")): null,
+      "statusCode" @("code": "completed"): null,
+      "effectiveTime" @("value": OBR."OBR-07"."TS-01"): null,
+      "priorityCode" @("code": "R"): null,
+      "confidentialityCode" @("code": "N", "codeSystem": "2.16.840.1.113883.5.25"): null,
+      "value" @("type": "PQ", "value": OBX."OBX-05"[0]."OBX-05-02", "unit": OBX."OBX-06"."CE-01"): null,
+      "interpretationCode" @("code": OBX."OBX-08"[0]): null,
+      "referenceRange": {
+        "interpretationRange": {
+          "value" @("type": "IVL_PQ"): {
+            "low" @("value": substringBefore(OBX."OBX-07","_"), "unit": OBX."OBX-06"."CE-01"): null,
+            "high" @("value": substringAfter(OBX."OBX-07","_"), "unit": OBX."OBX-06"."CE-01"): null
+          },
+          "interpretationCode" @("code": "N"): null
+        }
+      },
+      "author": {
+        "time" @("value": OBR."OBR-07"."TS-01"): null,
+        "modeCode" @("code": "WRITTEN"): null,
+        "signatureCode" @("code": "S"): null,
+        "assignedEntity": {
+          "id" @("root": "2.16.840.1.113883.19.1122.3", "extension": OBR."OBR-31"[0]."CE-01"): null,
+          "assignedPerson": {
+            "name": {
+              "given": OBR."OBR-31"."CE-03",
+              "family": OBR."OBR-31"."CE-02",
+              "suffix" @("qualifier": "AC"): "MD"
+            }
+          }
+        }
+      },
+      "recordTarget": {
+        "patientClinical": {
+          "id" @("root": "2.16.840.1.113883.19.1122.5", "extension": "444-22-2222", "assigningAuthorityName": (payload.MSH."MSH-03"."HD-01" default "") ++ " Patient IDs"): null,
+          "statusCode" @("code": "active"): null,
+          "patientPerson": {
+            "name" @("use": PID."PID-05"[0]."XPN-07"): {
+              "given": (PID."PID-05"[0]."XPN-02" default "") ++ " " ++ (PID."PID-05"[0]."XPN-03" default ""),
+              "family": PID."PID-05"[0]."XPN-01"."FN-01"
+            },
+            "asOtherIDs": {
+              "id" @("extension": PID."PID-18"."CX-01", "assigningAuthorityName": "SSN", "root": "2.16.840.1.113883.4.1"): null
+            }
+          }
+        }
+      },
+      "inFulfillmentOf": {
+        "placerOrder": {
+          "id" @("root": "2.16.840.1.113883.19.1122.14", "extension": OBR."OBR-02"."EI-01", "assigningAuthorityName": (OBR."OBR-02"."EI-02" default "") ++ " Placer orders"): null
+        }
+      }
+    }
+  }
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="4-HL7v2-to-JSON" doc:id="a902ae00-c3b5-424a-a83c-586c5bce3450">
+		<mllp:mllp-listener doc:name="Listen on port 51961" doc:id="fbf6560e-8579-4e9c-896f-56e42b7b4051" config-ref="MLLP_ORU_R01_51961"/>
+		<hl7:read doc:name="Read" doc:id="5575eb6f-797e-4ad5-801b-0cc9c9359abd" config-ref="HL7_EDI_ORU_R01_Config"/>
+		<ee:transform doc:name="Convert to JSON" doc:id="83c9f0db-5812-4a68-a630-2b4cfb1b793a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="5-HL7v2-to-FHIR" doc:id="3a90202e-2193-4001-9d11-40e55a270fef">
+		<mllp:mllp-listener doc:name="Listen on port 51962" doc:id="84805392-49a1-4bd4-a8b9-2606ddd374bf" config-ref="MLLP_ORU_R01_51962" />
+		<hl7:read doc:name="Read" doc:id="58fd9c94-41e2-4d80-bab4-ddffc201d1ea" config-ref="HL7_EDI_ORU_R01_Config" />
+		<ee:transform doc:name="Convert to FHIR" doc:id="fcef13a6-34f5-4439-b95d-1da63ba291a2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import dw::resources::oru_r01
+import clean from dw::resources::util
+output application/json skipNullOn="everywhere"
+---
+{
+	
+    resourceType: "Bundle",
+    "type": "transaction",
+    entry: clean(
+	    [ ] ++ 
+	    (oru_r01::mapR01Message(payload.Data.ORU_R01))
+	)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="AttachmentFlow" doc:id="674aaa3a-d7a9-4faa-954b-d8b8288523c0" >
+		<http:listener doc:name="Listener" doc:id="28c2fc43-95da-4359-956e-1f060c8d8c79" config-ref="HTTP_Listener_config" path="/attachment" />
+		<ee:transform doc:name="Convert to Array" doc:id="57030c27-6d1c-45c0-b03e-42dfbb1902f8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+var payloadParts=payload pluck($) default []
+---
+payloadParts[0] pluck($) default []]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="01eafa2c-0985-401c-91e2-a0eecd357e31" >
+			<logger level="INFO" doc:name="Logger" doc:id="eddad6b5-e26e-4fb3-b6c0-cbc350534e1d" message='#[payload.headers."Content-Disposition".filename]' />
+			<file:write doc:id="2fb9885d-c6b5-4cd6-811a-5558b7c3d1fe" config-ref="File_Config" path='#[payload.headers."Content-Disposition".filename]' doc:name="Write" >
+				<file:content ><![CDATA[#[payload.content]]]></file:content>
+			</file:write>
+		</foreach>
+		<ee:transform doc:name="Return Message" doc:id="ce61adc8-ddc7-4d14-9cbc-555cf620491f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Creating file(s) succeeded."
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
